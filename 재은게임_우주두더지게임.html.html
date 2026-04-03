@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>귀염 뽀짝 우주 팝팝!</title>
+    <style>
+        /* 기본 설정: 네온 & 레트로 무드 */
+        body { 
+            font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Courier New', sans-serif;
+            text-align: center; color: white; margin: 0; padding: 0; user-select: none; overflow: hidden; background: #000; 
+        }
+        
+        /* 1. 배경 설정: z-index를 -2로 낮춰 버튼을 가리지 않게 함 */
+        #bg-space { position: fixed; width: 100%; height: 100%; background: radial-gradient(circle, #1b2735 0%, #090a0f 100%); z-index: -2; }
+        #stars { position: fixed; width: 100%; height: 100%; z-index: -1; pointer-events: none; } /* 클릭 방해 금지 */
+        #stars::before, #stars::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-repeat: repeat; animation: twinkling infinite linear; }
+        #stars::before { background-image: radial-gradient(white, rgba(255,255,255,.2) 1px, transparent 2px); background-size: 200px 200px; animation-duration: 4s; }
+        #stars::after { background-image: radial-gradient(white, rgba(255,255,255,.15) 1.5px, transparent 2.5px); background-size: 300px 300px; animation-duration: 6s; }
+        
+        @keyframes twinkling { 0% { opacity: 0.3; } 50% { opacity: 0.9; } 100% { opacity: 0.3; } }
+
+        h1 { color: #fff; text-shadow: 0 0 10px #ff00de, 0 0 20px #ff00de; margin-top: 20px; font-size: 35px; }
+        
+        .stats-container { position: fixed; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.1); display: inline-block; padding: 10px 30px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.3); z-index: 100; }
+        .stats { font-size: 22px; font-weight: bold; text-shadow: 0 0 5px #fff; }
+
+        #game-area { position: relative; width: 1000px; height: 700px; display: inline-block; margin-top: 50px; cursor: crosshair; }
+        
+        .planet { position: absolute; width: 130px; height: 130px; border-radius: 50%; z-index: 5; box-shadow: 0 0 20px rgba(255, 255, 255, 0.2); }
+        .planet.ringed::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); width: 180px; height: 40px; border: 6px solid rgba(255, 255, 255, 0.5); border-radius: 50%; }
+        
+        .target { position: absolute; width: 90px; height: 90px; font-size: 70px; line-height: 90px; text-align: center; cursor: pointer; z-index: 10; display: none; transition: transform 0.1s; }
+        .ufo-normal { filter: drop-shadow(0 0 10px #00e5ff); }
+        .ufo-bomb { filter: drop-shadow(0 0 15px #ff1744); }
+        .target:active { transform: scale(1.3); }
+
+        .comet { position: absolute; width: 70px; height: 70px; font-size: 60px; cursor: pointer; z-index: 10; animation: fall 3.5s linear forwards; filter: drop-shadow(0 0 10px #ff1744); }
+        @keyframes fall { from { top: -100px; } to { top: 800px; } }
+
+        .score-eff { position: absolute; font-size: 30px; font-weight: bold; color: #00e5ff; pointer-events: none; animation: float 0.6s ease-out forwards; z-index: 20; text-shadow: 0 0 10px #00e5ff; }
+        @keyframes float { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-60px); } }
+
+        /* 결과 창 & 시작 가이드: z-index를 가장 높게(200) 설정 */
+        #msg-box, #start-guide { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 40px; border-radius: 30px; border: 2px solid #ff00de; z-index: 200; box-shadow: 0 0 50px #ff00de; }
+        #msg-box { display: none; }
+        #start-guide { width: 100%; height: 100%; border: none; border-radius: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+
+        button { padding: 15px 40px; font-size: 20px; cursor: pointer; border-radius: 50px; border: none; background: #ff00de; color: white; font-weight: bold; transition: 0.2s; position: relative; z-index: 210; }
+        button:hover { background: white; color: #ff00de; transform: scale(1.1); }
+    </style>
+</head>
+<body>
+
+    <div id="start-guide">
+        <h1 style="font-size: 50px;">👾 우주 팝팝!</h1>
+        <p style="font-size: 20px; margin-bottom: 30px;">외계인은 잡고, 해골(💀)과 혜성(☄️)은 피하세요!</p>
+        <button onclick="startGame()">탐사 시작!</button>
+    </div>
+
+    <div id="bg-space"></div>
+    <div id="stars"></div>
+    <h1>👾 우주 팝팝! 외계인을 잡아라</h1>
+    
+    <div class="stats-container">
+        <div class="stats">SCORE: <span id="score">0</span> | TIME: <span id="timer">30</span>s | LIFE: <span id="hearts">❤️❤️❤️</span></div>
+    </div>
+    
+    <div id="game-area">
+        <div class="planet" style="left:100px; top:100px; background: radial-gradient(circle, #6a11cb 0%, #2575fc 100%);"></div>
+        <div class="planet ringed" style="left:400px; top:50px; background: radial-gradient(circle, #ff9ff3 0%, #ff4757 100%);"></div>
+        <div class="planet" style="left:750px; top:130px; background: radial-gradient(circle, #ffeaa7 0%, #ff9f43 100%);"></div>
+        <div class="planet" style="left:120px; top:450px; background: radial-gradient(circle, #81ecec 0%, #00e5ff 100%);"></div>
+        <div class="planet ringed" style="left:500px; top:480px; background: radial-gradient(circle, #b8e994 0%, #39ff14 100%);"></div>
+        <div class="planet" style="left:800px; top:420px; background: radial-gradient(circle, #fab1a0 0%, #ee5253 100%);"></div>
+        
+        <div id="ufo" class="target">👾</div>
+    </div>
+
+    <div id="msg-box">
+        <h2 id="res-title" style="font-size: 40px; color:#ff00de;">탐사 종료!</h2>
+        <p id="res-score" style="font-size: 24px; white-space: pre-line; margin-bottom: 30px;"></p>
+        <button onclick="location.reload()">다시 탐사하기</button>
+    </div>
+
+    <script>
+        let score = 0;
+        let timeLeft = 30;
+        let hearts = 3;
+        let gameActive = false;
+        let audioCtx = null;
+        let ufoTimer = null; 
+        let isBomb = false;
+
+        const ufo = document.getElementById('ufo');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const heartsDisplay = document.getElementById('hearts');
+        const gameArea = document.getElementById('game-area');
+
+        function playSound(freq, type, duration, vol=0.1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playBGM() {
+            if (!gameActive) return;
+            const notes = [261.63, 329.63, 392.00, 523.25];
+            let i = 0;
+            const loop = setInterval(() => {
+                if (!gameActive) { clearInterval(loop); return; }
+                playSound(notes[i % 4], 'square', 0.2, 0.05);
+                i++;
+            }, 300);
+        }
+
+        function startGame() {
+            document.getElementById('start-guide').style.display = 'none';
+            gameActive = true;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            playBGM();
+            showUfo();
+            setTimeout(dropComet, 2000);
+            startTimer();
+        }
+
+        const planetCoords = [
+            {x:120, y:120}, {x:420, y:70}, {x:770, y:150},
+            {x:140, y:470}, {x:520, y:500}, {x:820, y:440}
+        ];
+
+        function showUfo() {
+            if(!gameActive) return;
+            clearTimeout(ufoTimer); 
+            const loc = planetCoords[Math.floor(Math.random() * planetCoords.length)];
+            
+            isBomb = Math.random() < 0.2; 
+            if(isBomb) {
+                ufo.innerText = '💀';
+                ufo.className = 'target ufo-bomb';
+            } else {
+                ufo.innerText = '👾';
+                ufo.className = 'target ufo-normal';
+            }
+
+            ufo.style.left = loc.x + 'px';
+            ufo.style.top = loc.y + 'px';
+            ufo.style.display = 'block';
+
+            ufoTimer = setTimeout(() => {
+                if(ufo.style.display === 'block') {
+                    ufo.style.display = 'none';
+                    if(gameActive) setTimeout(showUfo, 500);
+                }
+            }, 1000); 
+        }
+
+        ufo.onclick = function(e) {
+            if(!gameActive) return;
+            clearTimeout(ufoTimer); 
+            if(isBomb) {
+                hearts--; updateHeartsDisplay();
+                playSound(100, 'sawtooth', 0.4);
+                showEffect(e.pageX, e.pageY, "💥 FAIL!");
+                if(hearts <= 0) endGame();
+            } else {
+                score += 100; scoreDisplay.innerText = score;
+                playSound(880, 'square', 0.1);
+                showEffect(e.pageX, e.pageY, "+100");
+            }
+            ufo.style.display = 'none';
+            setTimeout(showUfo, 400); 
+        };
+
+        function dropComet() {
+            if(!gameActive) return;
+            const comet = document.createElement('div');
+            comet.className = 'comet';
+            comet.innerText = '☄️';
+            comet.style.left = Math.random() * (1000 - 70) + 'px';
+            comet.onclick = (e) => {
+                if(!gameActive) return;
+                hearts--; updateHeartsDisplay();
+                playSound(150, 'sawtooth', 0.3);
+                showEffect(e.pageX, e.pageY, "💥 LIFE-1");
+                comet.remove();
+                if(hearts <= 0) endGame();
+            };
+            gameArea.appendChild(comet);
+            setTimeout(() => comet.remove(), 3500); 
+            if(gameActive) setTimeout(dropComet, 2500);
+        }
+
+        function showEffect(x, y, txt) {
+            const eff = document.createElement('div');
+            eff.className = 'score-eff'; eff.innerText = txt;
+            eff.style.left = (x - 20) + 'px'; eff.style.top = (y - 50) + 'px';
+            document.body.appendChild(eff);
+            setTimeout(() => eff.remove(), 600);
+        }
+
+        function updateHeartsDisplay() {
+            let txt = "";
+            for(let i=0; i<3; i++) txt += (i < hearts) ? "❤️" : "🤍";
+            heartsDisplay.innerText = txt;
+        }
+
+        function startTimer() {
+            const countdown = setInterval(() => {
+                if(!gameActive) { clearInterval(countdown); return; }
+                timeLeft--; timerDisplay.innerText = timeLeft;
+                if(timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearTimeout(ufoTimer);
+            ufo.style.display = 'none';
+            playSound(300, 'square', 0.5);
+            document.getElementById('msg-box').style.display = 'block';
+            let rank = (score >= 2000) ? "🏆 전설의 에이스" : (score >= 1000) ? "👨‍🚀 우수 탐사원" : "👶 초보 여행자";
+            document.getElementById('res-score').innerHTML = `<span style="font-size:30px; font-weight:bold;">${rank}</span>\n\n내 점수: ${score}점`;
+        }
+    </script>
+</body>
+</html>
